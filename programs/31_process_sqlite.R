@@ -35,6 +35,7 @@ files.df %>%
   filter(!file_type %in% exclusions.ext) %>%
   mutate(present_main=str_detect(tolower(file),"main"),
          present_master=str_detect(tolower(file),"master"),
+         present_makefile=str_detect(tolower(file),"makefile"),
          present_dockerfile=str_detect(tolower(file),"dockerfile"),
          present_apptainer=(str_detect(tolower(file),"apptainer") |
                             str_detect(tolower(file),"singularity") |
@@ -90,20 +91,21 @@ articles %>%
 # by journal
 analysis_main %>% 
   group_by(journ,id) %>%
-  summarize( present_main=max(present_main),
-             present_master=max(present_master)) %>%
+  summarize(across(starts_with("present_"),max)) %>%
   ungroup() %>%
   group_by(journ) %>%
   summarize(n=n(),
             main_n=sum(present_main),
             master_n=sum(present_master),
-            any_n = sum(present_master | present_main)) -> tmp
+            makefile_n = sum(present_makefile),
+            any_n = sum(present_master | present_main | present_makefile)) -> tmp
 tmp %>%
   # add a column sum
   bind_rows(
     tmp %>% ungroup() %>% summarize(n=sum(n),
                                     main_n = sum(main_n),
                                     master_n=sum(master_n),
+                                    makefile_n=sum(makefile_n),
                                     any_n   =sum(any_n))
   ) %>%
   mutate(any_pct = 100 * any_n/n,
@@ -131,7 +133,7 @@ articles <- nrow(files_main %>% distinct(id))
 files_main %>% 
   #group_by(journ,id) %>%
   group_by(id) %>%
-  mutate(present_any = (present_master | present_main)) %>%
+  mutate(present_any = (present_master | present_main | present_makefile)) %>%
   summarize(across(starts_with("present_"),max),) %>%
   ungroup() %>%
   summarize(present_n=n(),
