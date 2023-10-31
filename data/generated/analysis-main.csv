@@ -1,2 +1,8 @@
-"","n","main_n","master_n","any_n","any_pct"
-"1",8217,1743,1154,2551,31.0453936959961
+"","name","value","Percent"
+"1","present_n",8280,100
+"2","present_main",1746,21.0869565217391
+"3","present_master",1160,14.0096618357488
+"4","present_dockerfile",11,0.132850241545894
+"5","present_apptainer",0,0
+"6","present_dependency",72,0.869565217391304
+"7","present_any",2556,30.8695652173913

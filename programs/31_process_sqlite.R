@@ -10,6 +10,10 @@ source(file.path(programs,"config.R"), echo=FALSE)
 
 exclusions.ext <- c("eps","pdf","doc","docx","ps","csv","dta","tex")
 
+dep.files = c("environment.yml","requirements.txt",
+              "project.toml","manifest.toml",
+              "renv.lock")
+
 files_db <- dbConnect(RSQLite::SQLite(), kranz.sql)
 articles_db <- dbConnect(RSQLite::SQLite(), kranz.sql2)
 
@@ -27,11 +31,17 @@ skim(files.df)
 
 
 
-dbGetQuery(files_db,"SELECt * FROM files WHERE file_type != '' ;") %>%
+files.df %>%
   filter(!file_type %in% exclusions.ext) %>%
   mutate(present_main=str_detect(tolower(file),"main"),
-         present_master=str_detect(tolower(file),"master")) -> files_main
-names(files_main)
+         present_master=str_detect(tolower(file),"master"),
+         present_dockerfile=str_detect(tolower(file),"dockerfile"),
+         present_apptainer=(str_detect(tolower(file),"apptainer") |
+                            str_detect(tolower(file),"singularity") |
+                            tolower(file_type) %in% c("sif"))) %>%
+  # dependency files
+  mutate(present_dependency=str_detect(tolower(file),paste(dep.files, collapse = "|")))-> files_main
+  names(files_main)
 head(files_main)
 
 head(files_main %>% filter(present_main))
@@ -75,16 +85,7 @@ articles %>%
 
 
 # by journal
-analysis_main %>%
-  group_by(id) %>%
-  summarize( present_main=max(present_main),
-             present_master=max(present_master)) %>%
-  ungroup() %>%
-  summarize(n=n(),
-            main_n=sum(present_main),
-            master_n=sum(present_master),
-            any_n = sum(present_master | present_main)) %>%
-  mutate(any_pct = 100 * any_n/n) -> analysis_main.table
+
 
 # by journal
 analysis_main %>% 
@@ -111,7 +112,6 @@ analysis_main.byj.table
 
 # write out tables
 
-write.csv(analysis_main.table,file.path(generated,"analysis-main.csv"))
 write.csv(analysis_main.byj.table,file.path(generated,"analysis-main-byj.csv"))
 
 print(
@@ -120,12 +120,34 @@ print(
          label="tab:master:byjournal"),
   caption.placement = "top",
   file=file.path(generated,"table_analysis_main_byj.tex"))
+
+
+
+### Now find "Dockerfiles"
+
+
+# summarize
+articles <- nrow(files_main %>% distinct(id))
+files_main %>% 
+  #group_by(journ,id) %>%
+  group_by(id) %>%
+  mutate(present_any = (present_master | present_main)) %>%
+  summarize(across(starts_with("present_"),max),) %>%
+  ungroup() %>%
+  summarize(present_n=n(),
+            across(starts_with("present_"),sum)) %>%
+  pivot_longer(starts_with("present_")) %>%
+  mutate(Percent = 100*value/articles)-> analysis_main.table
+
+write.csv(analysis_main.table,file.path(generated,"analysis-main.csv"))
+
 print(
   xtable(analysis_main.table,
          caption="Presence of main or master file in main Econ journals",
          label="tab:master"),
   caption.placement = "top",
   file=file.path(generated,"table_analysis_main.tex"))
+
 
 dbDisconnect(articles_db)
 
