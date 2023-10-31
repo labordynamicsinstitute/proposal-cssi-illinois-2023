@@ -1,0 +1,6 @@
+.local
+.config
+.bash*
+*.zip
+.RData
+*.swp
