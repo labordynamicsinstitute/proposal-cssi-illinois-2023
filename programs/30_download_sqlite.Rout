@@ -1,0 +1,135 @@
+
+R version 4.3.1 (2023-06-16) -- "Beagle Scouts"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # Download ONET and BLS OES data
+> # Data is about 50MB - depending on your connection, this might take a while.
+> 
+> source(file.path(rprojroot::find_root(rprojroot::has_file("pathconfig.R")),"pathconfig.R"),echo=FALSE)
+> source(file.path(basepath,"global-libraries.R"), echo=FALSE)
+Loading required package: devtools
+Loading required package: usethis
+Loading required package: rprojroot
+Loading required package: tictoc
+> source(file.path(programs,"libraries.R"), echo=FALSE)
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: stringr
+Loading required package: DBI
+Loading required package: RSQLite
+Loading required package: skimr
+Installing package into ‘/usr/local/lib/R/site-library’
+(as ‘lib’ is unspecified)
+also installing the dependencies ‘extrafontdb’, ‘Rttf2pt1’, ‘repr’, ‘extrafont’
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/extrafontdb_1.0.tar.gz'
+Content type 'binary/octet-stream' length 6914 bytes
+==================================================
+downloaded 6914 bytes
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/Rttf2pt1_1.3.12.tar.gz'
+Content type 'binary/octet-stream' length 273415 bytes (267 KB)
+==================================================
+downloaded 267 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/repr_1.1.6.tar.gz'
+Content type 'binary/octet-stream' length 121446 bytes (118 KB)
+==================================================
+downloaded 118 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/extrafont_0.19.tar.gz'
+Content type 'binary/octet-stream' length 54293 bytes (53 KB)
+==================================================
+downloaded 53 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/skimr_2.1.5.tar.gz'
+Content type 'binary/octet-stream' length 1227073 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+* installing *binary* package ‘extrafontdb’ ...
+* DONE (extrafontdb)
+* installing *binary* package ‘Rttf2pt1’ ...
+* DONE (Rttf2pt1)
+* installing *binary* package ‘repr’ ...
+* DONE (repr)
+* installing *binary* package ‘extrafont’ ...
+* DONE (extrafont)
+* installing *binary* package ‘skimr’ ...
+* DONE (skimr)
+
+The downloaded source packages are in
+	‘/tmp/RtmpZIeeWX/downloaded_packages’
+Loading required package: skimr
+Loading required package: tidyr
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called ‘skimr’
+> source(file.path(programs,"config.R"), echo=FALSE)
+> 
+> # download data for filenames
+> 
+> # Source:
+> # Sebastian Kranz. 2023. "Economic Articles with Data". https://ejd.econ.mathematik.uni-ulm.de/, accessed on (DATE)
+> # This should be output as a bib file, with today's date, if downloading again.
+> 
+> if ( !file.exists(kranz.zip) ) {
++    download.file(url=kranz.src,destfile=kranz.zip)
++    # this is where the bib file should be generated.
++ }
+> 
+> if ( file.exists(kranz.zip) ) {
++ 	unzip(kranz.zip,exdir=dirname(kranz.sql))
++ }
+> 
+> if ( file.exists(kranz.sql) ) {
++ 	    message("File from ",kranz.src," was successfully downloaded and extracted")
++ }
+File from http://econ.mathematik.uni-ulm.de/ejd/files.zip was successfully downloaded and extracted
+> 
+> # now download the article database
+> 
+> if ( !file.exists(kranz.zip2) ) {
++    download.file(url=kranz.src2,destfile=kranz.zip2)
++    # this is where the bib file should be generated.
++ }
+> 
+> if ( file.exists(kranz.zip2) ) {
++ 	unzip(kranz.zip2,exdir=dirname(kranz.sql2))
++ }
+> 
+> if ( file.exists(kranz.sql2) ) {
++ 	    message("File from ",kranz.src2," was successfully downloaded and extracted")
++ }
+File from http://econ.mathematik.uni-ulm.de/ejd/articles.zip was successfully downloaded and extracted
+> 
+> proc.time()
+   user  system elapsed 
+  4.880   8.721   9.847 
