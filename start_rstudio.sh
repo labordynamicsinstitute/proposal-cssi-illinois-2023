@@ -12,7 +12,7 @@ fi
 
 PWD=$(pwd)
 repo=${PWD##*/}
-tag=${1:-2023-03-12}
+tag=${1:-latest}
 space=larsvilhuber
 case $USER in
   *vilhuber|*herbert)
