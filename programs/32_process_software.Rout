@@ -1,0 +1,335 @@
+
+R version 4.3.1 (2023-06-16) -- "Beagle Scouts"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # Download ONET and BLS OES data
+> # Data is about 50MB - depending on your connection, this might take a while.
+> 
+> source(file.path(rprojroot::find_root(rprojroot::has_file("pathconfig.R")),"pathconfig.R"),echo=FALSE)
+> source(file.path(basepath,"global-libraries.R"), echo=FALSE)
+Loading required package: devtools
+Loading required package: usethis
+Loading required package: rprojroot
+Loading required package: tictoc
+> source(file.path(programs,"libraries.R"), echo=FALSE)
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: stringr
+Loading required package: DBI
+Loading required package: RSQLite
+Loading required package: skimr
+Loading required package: tidyr
+> source(file.path(programs,"config.R"), echo=FALSE)
+> 
+> # exclusions to not consider
+> 
+> exclusions.ext <- c("eps","pdf","doc","docx","ps","csv","dta","tex")
+> 
+> dep.files = c("environment.yml","requirements.txt",
++               "project.toml","manifest.toml",
++               "renv.lock")
+> 
+> files_db <- dbConnect(RSQLite::SQLite(), kranz.sql)
+> articles_db <- dbConnect(RSQLite::SQLite(), kranz.sql2)
+> 
+> # ingest the articles db
+> dbGetQuery(articles_db,"SELECt id,journ,title,year,date,vol,issue,artnum,
++            article_url,has_data,data_url,article_doi,data_doi FROM article  ;") %>%
++   group_by(journ) -> articles
+> 
+> # ingest files
+> 
+> dbGetQuery(files_db,"SELECT * from files;") -> files.df
+> names(files.df)
+[1] "id"        "file"      "file_type" "kb"        "nested"   
+> # [1] "id"        "file"      "file_type" "kb"        "nested"   
+> skim(files.df)
+── Data Summary ────────────────────────
+                           Values  
+Name                       files.df
+Number of rows             1126270 
+Number of columns          5       
+_______________________            
+Column type frequency:             
+  character                3       
+  numeric                  2       
+________________________           
+Group variables            None    
+
+── Variable type: character ────────────────────────────────────────────────────
+  skim_variable n_missing complete_rate min max empty n_unique whitespace
+1 id                    0             1   9  15     0     8377          0
+2 file                  0             1   1 287     0  1071413          0
+3 file_type             0             1   0  27 54086     2375          0
+
+── Variable type: numeric ──────────────────────────────────────────────────────
+  skim_variable n_missing complete_rate      mean        sd p0  p25  p50  p75
+1 kb                    0             1 4201.     93031.     0 1.41 13.5 57.6
+2 nested                0             1    0.0788     0.269  0 0     0    0  
+      p100 hist 
+1 23200000 ▇▁▁▁▁
+2        1 ▇▁▁▁▁
+> 
+> # file extensions
+> files.python = c("py")
+> files.julia  = c("jl")
+> files.notebooks = c("ipynb","qmd") # Cannot detect Pluto notebooks
+> files.r = c("r","rmd")
+> files.stata = c("do","ado","sthlp","dta")
+> files.m = c("m") # m files are ambiguous...
+> files.matlab = c("mat") # plus files.m
+> files.mod    = c("mod") # shared between dynare and AMPL https://twitter.com/jacob_mays/status/1687989116934225920
+> files.ampl   = c("dat","run")
+> files.ox     = c("ox")
+> files.mathematica = c("wl","nb","wxf","wdx","mx") # plus files.m
+> 
+> files.df %>%
++   filter(!file_type %in% exclusions.ext) %>%
++   mutate(lft = tolower(file_type),
++          present_python=lft %in% files.python,
++          present_julia =lft %in% files.julia,
++          present_notebooks = lft %in% files.notebooks,
++          present_r     = lft %in% files.r,
++          present_stata = lft %in% files.stata,
++          tmp_m         = lft %in% files.m,
++          present_matlab= lft %in% files.matlab,
++          present_mathematica = lft %in% files.mathematica,
++          # disambiguate m files
++          present_matlab= ( present_matlab | ( tmp_m & ! present_mathematica)), # use m files if no other mathematica files are there
++          present_mathematica = (present_mathematica | (tmp_m & ! present_matlab)),
++          tmp_mod       = lft %in% files.mod,
++          present_ampl  = lft %in% files.ampl,
++          # same thing here
++          present_dynare = ( tmp_mod & ! present_ampl),
++          present_ampl   = ( tmp_mod & ! present_dynare),
++          present_ox     = lft %in% files.ox
++          ) -> files_main
+>   names(files_main)
+ [1] "id"                  "file"                "file_type"          
+ [4] "kb"                  "nested"              "lft"                
+ [7] "present_python"      "present_julia"       "present_notebooks"  
+[10] "present_r"           "present_stata"       "tmp_m"              
+[13] "present_matlab"      "present_mathematica" "tmp_mod"            
+[16] "present_ampl"        "present_dynare"      "present_ox"         
+> head(files_main)
+            id                                             file file_type
+1 aer_108_12_2                                  Codes and Data/          
+2 aer_108_12_2         Codes and Data/AER-2015-1510R2_Shapley.m         m
+3 aer_108_12_2                      Codes and Data/obfn_other.m         m
+4 aer_108_12_2               Codes and Data/data_est_01212015.m         m
+5 aer_108_12_2          Codes and Data/AER-2015-1510R2_pspp.mod       mod
+6 aer_108_12_2 Codes and Data/AER-2015-1510R2_counterfactuals.m         m
+      kb nested lft present_python present_julia present_notebooks present_r
+1  0.000      0              FALSE         FALSE             FALSE     FALSE
+2 28.733      0   m          FALSE         FALSE             FALSE     FALSE
+3  0.264      0   m          FALSE         FALSE             FALSE     FALSE
+4  2.513      0   m          FALSE         FALSE             FALSE     FALSE
+5 12.900      0 mod          FALSE         FALSE             FALSE     FALSE
+6 36.860      0   m          FALSE         FALSE             FALSE     FALSE
+  present_stata tmp_m present_matlab present_mathematica tmp_mod present_ampl
+1         FALSE FALSE          FALSE               FALSE   FALSE        FALSE
+2         FALSE  TRUE           TRUE               FALSE   FALSE        FALSE
+3         FALSE  TRUE           TRUE               FALSE   FALSE        FALSE
+4         FALSE  TRUE           TRUE               FALSE   FALSE        FALSE
+5         FALSE FALSE          FALSE               FALSE    TRUE        FALSE
+6         FALSE  TRUE           TRUE               FALSE   FALSE        FALSE
+  present_dynare present_ox
+1          FALSE      FALSE
+2          FALSE      FALSE
+3          FALSE      FALSE
+4          FALSE      FALSE
+5           TRUE      FALSE
+6          FALSE      FALSE
+> skim(files_main)
+── Data Summary ────────────────────────
+                           Values    
+Name                       files_main
+Number of rows             901560    
+Number of columns          18        
+_______________________              
+Column type frequency:               
+  character                4         
+  logical                  12        
+  numeric                  2         
+________________________             
+Group variables            None      
+
+── Variable type: character ────────────────────────────────────────────────────
+  skim_variable n_missing complete_rate min max empty n_unique whitespace
+1 id                    0             1   9  15     0     8280          0
+2 file                  0             1   1 287     0   864171          0
+3 file_type             0             1   0  27 54086     2367          0
+4 lft                   0             1   0  27 54086     2305          0
+
+── Variable type: logical ──────────────────────────────────────────────────────
+   skim_variable       n_missing complete_rate     mean count                   
+ 1 present_python              0             1 0.00788  FAL: 894457, TRU: 7103  
+ 2 present_julia               0             1 0.000624 FAL: 900997, TRU: 563   
+ 3 present_notebooks           0             1 0.000680 FAL: 900947, TRU: 613   
+ 4 present_r                   0             1 0.00750  FAL: 894796, TRU: 6764  
+ 5 present_stata               0             1 0.106    FAL: 806174, TRU: 95386 
+ 6 tmp_m                       0             1 0.109    FAL: 803723, TRU: 97837 
+ 7 present_matlab              0             1 0.220    FAL: 703655, TRU: 197905
+ 8 present_mathematica         0             1 0.000499 FAL: 901110, TRU: 450   
+ 9 tmp_mod                     0             1 0.00474  FAL: 897291, TRU: 4269  
+10 present_ampl                0             1 0        FAL: 901560             
+11 present_dynare              0             1 0.00474  FAL: 897291, TRU: 4269  
+12 present_ox                  0             1 0.000132 FAL: 901441, TRU: 119   
+
+── Variable type: numeric ──────────────────────────────────────────────────────
+  skim_variable n_missing complete_rate      mean        sd p0  p25  p50  p75
+1 kb                    0             1 1965.     62069.     0 1.05 10.2 30.4
+2 nested                0             1    0.0851     0.279  0 0     0    0  
+      p100 hist 
+1 19800000 ▇▁▁▁▁
+2        1 ▇▁▁▁▁
+> 
+> dbDisconnect(files_db)
+> 
+> # merge to article db to get journals
+> # id|year|date|journ|title|vol|issue|artnum|article_url|
+> 
+> files_main %>% 
++   left_join(dbGetQuery(articles_db,"SELECt id,year,date,journ FROM article
++ ;"),
++             by="id") -> analysis_software
+> 
+> # Test
+> articles %>%  distinct(journ,.keep_all = TRUE)
+# A tibble: 17 × 13
+# Groups:   journ [17]
+   id            journ title  year  date   vol issue artnum article_url has_data
+   <chr>         <chr> <chr> <int> <int> <int> <int>  <int> <chr>          <int>
+ 1 aer_108_11_1  aer   Firm…  2018 17836   108    11      1 https://ww…        1
+ 2 aejpol_10_4_1 aejp… Supp…  2018 17836    10     4      1 https://ww…        1
+ 3 aejapp_10_4_2 aeja… Soci…  2018 17805    10     4      2 https://ww…        1
+ 4 aejmic_10_4_1 aejm… Soph…  2018 17836    10     4      1 https://ww…        1
+ 5 aejmac_10_4_1 aejm… The …  2018 17805    10     4      1 https://ww…        1
+ 6 jep_32_4_1    jep   An E…  2018 17805    32     4      1 https://ww…        0
+ 7 restat_54754  rest… Publ…  2013 15719    NA    NA     NA <NA>               1
+ 8 qje_3224689   qje   From…  2018 17790    NA    NA     NA <NA>               1
+ 9 jaere_3300252 jaere Hori…  2018 17836    NA    NA     NA <NA>               1
+10 restud_81_1_1 rest… Barg…  2014 16071    81     1      1 https://ac…        0
+11 jpe_124_1_1   jpe   Carb…  2016 16832   124     1      1 https://ww…        1
+12 ecta_87_1_1   ecta  From…  2019 17897    87     1      1 https://ww…        1
+13 jeea_17_1_2   jeea  The …  2019 17928    17     1      2 https://ac…        1
+14 aeri_1_1_3    aeri  Debt…  2019 18048     1     1      3 https://ww…        1
+15 jole_38_1_1   jole  Does…  2020 18262    38     1      1 https://ww…        1
+16 pandp_108_1_4 pandp Algo…  2018 17652   108     1      4 https://ww…        1
+17 ms_69_4_1     ms    The …  2023 19448    69     4      1 https://pu…        1
+# ℹ 3 more variables: data_url <chr>, article_doi <chr>, data_doi <chr>
+> 
+> # transform by journal specific pattern (in the absence of DOI)
+> articles %>%
++   mutate(publisher = case_when(
++     str_detect(article_url,fixed("aeaweb")) ~ "aea",
++     str_detect(article_url,fixed("oup.com")) ~ "oup",
++     str_detect(article_url,fixed("uchicago")) ~ "ucp",
++     str_detect(article_url,fixed("econometric")) ~ "ecta",
++     TRUE ~ "unknown"),
++     article_doi = case_when(
++       !is.na(article_doi) ~ article_doi,
++       # https://www.aeaweb.org/articles?id=10.1257/aer.20150361  
++       publisher == "aea" ~ str_remove(article_url,fixed("https://www.aeaweb.org/articles?id=")),
++       # https://academic.oup.com/restud/article/81/1/1/1727641
++       # publisher == "oup" ~ cannot be transformed
++       # https://www.journals.uchicago.edu/doi/abs/10.1086/704494     
++       publisher == "ucp" ~ str_remove(article_url,fixed("https://www.journals.uchicago.edu/doi/abs/"))
++       # https://www.econometricsociety.org/publications/econometrica/2019/01/01/aggregate-betting-data-individual-risk-preferences
++       # publisher == "ecta" ~ cannot be transformed
++     )
++   )
+# A tibble: 11,203 × 14
+# Groups:   journ [17]
+   id            journ title  year  date   vol issue artnum article_url has_data
+   <chr>         <chr> <chr> <int> <int> <int> <int>  <int> <chr>          <int>
+ 1 aer_108_11_1  aer   Firm…  2018 17836   108    11      1 https://ww…        1
+ 2 aer_108_11_2  aer   Near…  2018 17836   108    11      2 https://ww…        1
+ 3 aer_108_11_3  aer   The …  2018 17836   108    11      3 https://ww…        1
+ 4 aer_108_11_4  aer   The …  2018 17836   108    11      4 https://ww…        1
+ 5 aer_108_11_5  aer   Stra…  2018 17836   108    11      5 https://ww…        1
+ 6 aer_108_11_6  aer   Meas…  2018 17836   108    11      6 https://ww…        1
+ 7 aer_108_11_7  aer   Mism…  2018 17836   108    11      7 https://ww…        1
+ 8 aer_108_11_8  aer   Temp…  2018 17836   108    11      8 https://ww…        1
+ 9 aer_108_11_9  aer   The …  2018 17836   108    11      9 https://ww…        1
+10 aer_108_11_10 aer   BKK …  2018 17836   108    11     10 https://ww…        1
+# ℹ 11,193 more rows
+# ℹ 4 more variables: data_url <chr>, article_doi <chr>, data_doi <chr>,
+#   publisher <chr>
+> 
+> # We may need to match on vol/issue/artnum instead for other journals
+> 
+> 
+> 
+> # by journal
+> 
+> 
+> # by journal
+> analysis_software %>% 
++   group_by(journ,id) %>%
++   summarize(across(starts_with("present_"),max)) %>%
++   ungroup() %>%
++   group_by(journ) %>%
++   summarize(articles=n(),
++             across(starts_with("present_"),sum)) %>%
++   pivot_longer(starts_with("present_")) %>%
++   mutate(Percent = 100*value/articles)  -> analysis_software.byj.table
+`summarise()` has grouped output by 'journ'. You can override using the
+`.groups` argument.
+> analysis_software.byj.table
+# A tibble: 170 × 5
+   journ  articles name                value Percent
+   <chr>     <int> <chr>               <int>   <dbl>
+ 1 aejapp      610 present_python         18   2.95 
+ 2 aejapp      610 present_julia           1   0.164
+ 3 aejapp      610 present_notebooks       2   0.328
+ 4 aejapp      610 present_r              43   7.05 
+ 5 aejapp      610 present_stata         584  95.7  
+ 6 aejapp      610 present_matlab         40   6.56 
+ 7 aejapp      610 present_mathematica     1   0.164
+ 8 aejapp      610 present_ampl            0   0    
+ 9 aejapp      610 present_dynare          0   0    
+10 aejapp      610 present_ox              0   0    
+# ℹ 160 more rows
+> 
+> # write out tables
+> 
+> write.csv(analysis_software.byj.table,file.path(generated,"analysis-software-byj.csv"))
+> 
+> print(
++   xtable(analysis_software.byj.table,
++          caption="Software use in main Econ journals",
++          label="tab:software:byjournal"),
++   caption.placement = "top",
++   file=file.path(generated,"table_analysis_software_byj.tex"))
+Error in xtable(analysis_software.byj.table, caption = "Software use in main Econ journals",  : 
+  could not find function "xtable"
+Calls: print
+Execution halted

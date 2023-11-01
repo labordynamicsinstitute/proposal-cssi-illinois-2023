@@ -4,3 +4,5 @@
 *.zip
 .RData
 *.swp
+.sh_history
+tags.txt

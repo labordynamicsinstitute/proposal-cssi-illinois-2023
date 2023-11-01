@@ -18,6 +18,6 @@ pkgTest <- function(x)
 }
 
 global.libraries <- c("dplyr","stringr","devtools","rprojroot","tictoc","DBI",
-                      "RSQLite","skimr","tidyr")
+                      "RSQLite","skimr","tidyr","ggrepel")
 
 results <- sapply(as.list(global.libraries), pkgTest)
