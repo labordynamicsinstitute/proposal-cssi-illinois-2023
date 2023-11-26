@@ -139,14 +139,14 @@ analysis_software.byj.table %>%
   summarize(articles = sum(articles),
             value = sum(value)) %>%
   mutate(articles = max(articles),
-         Percent = 100*value/articles)
+         Percent = 100*value/articles) -> analysis_software.table
 
 # write out tables
 
-write.csv(analysis_software.byj.table,file.path(generated,"analysis-software.csv"))
+write.csv(analysis_software.table,file.path(generated,"analysis-software.csv"))
 
 print(
-  xtable(analysis_software.byj.table,
+  xtable(analysis_software.table,
          caption="Software use in main Econ journals",
          label="tab:software"),
   caption.placement = "top",

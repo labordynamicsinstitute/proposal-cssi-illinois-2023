@@ -46,11 +46,18 @@ Loading required package: DBI
 Loading required package: RSQLite
 Loading required package: skimr
 Loading required package: tidyr
+Loading required package: ggrepel
+Loading required package: ggplot2
+Loading required package: xtable
 > source(file.path(programs,"config.R"), echo=FALSE)
 > 
 > # exclusions to not consider
 > 
 > exclusions.ext <- c("eps","pdf","doc","docx","ps","csv","dta","tex")
+> 
+> dep.files = c("environment.yml","requirements.txt",
++               "project.toml","manifest.toml",
++               "renv.lock")
 > 
 > files_db <- dbConnect(RSQLite::SQLite(), kranz.sql)
 > articles_db <- dbConnect(RSQLite::SQLite(), kranz.sql2)
@@ -95,28 +102,44 @@ Group variables            None
 > 
 > 
 > 
-> dbGetQuery(files_db,"SELECt * FROM files WHERE file_type != '' ;") %>%
+> files.df %>%
 +   filter(!file_type %in% exclusions.ext) %>%
 +   mutate(present_main=str_detect(tolower(file),"main"),
-+          present_master=str_detect(tolower(file),"master")) -> files_main
-> names(files_main)
-[1] "id"             "file"           "file_type"      "kb"            
-[5] "nested"         "present_main"   "present_master"
++          present_master=str_detect(tolower(file),"master"),
++          present_makefile=str_detect(tolower(file),"makefile"),
++          present_dockerfile=str_detect(tolower(file),"dockerfile"),
++          present_apptainer=(str_detect(tolower(file),"apptainer") |
++                             str_detect(tolower(file),"singularity") |
++                             tolower(file_type) %in% c("sif"))) %>%
++   # dependency files
++   mutate(present_dependency=str_detect(tolower(file),paste(dep.files, collapse = "|")))-> files_main
+>   names(files_main)
+ [1] "id"                 "file"               "file_type"         
+ [4] "kb"                 "nested"             "present_main"      
+ [7] "present_master"     "present_makefile"   "present_dockerfile"
+[10] "present_apptainer"  "present_dependency"
 > head(files_main)
             id                                             file file_type
-1 aer_108_12_2         Codes and Data/AER-2015-1510R2_Shapley.m         m
-2 aer_108_12_2                      Codes and Data/obfn_other.m         m
-3 aer_108_12_2               Codes and Data/data_est_01212015.m         m
-4 aer_108_12_2          Codes and Data/AER-2015-1510R2_pspp.mod       mod
-5 aer_108_12_2 Codes and Data/AER-2015-1510R2_counterfactuals.m         m
-6 aer_108_12_2         Codes and Data/AER-2015-1510R2_results.m         m
-      kb nested present_main present_master
-1 28.733      0        FALSE          FALSE
-2  0.264      0        FALSE          FALSE
-3  2.513      0        FALSE          FALSE
-4 12.900      0        FALSE          FALSE
-5 36.860      0        FALSE          FALSE
-6 25.275      0        FALSE          FALSE
+1 aer_108_12_2                                  Codes and Data/          
+2 aer_108_12_2         Codes and Data/AER-2015-1510R2_Shapley.m         m
+3 aer_108_12_2                      Codes and Data/obfn_other.m         m
+4 aer_108_12_2               Codes and Data/data_est_01212015.m         m
+5 aer_108_12_2          Codes and Data/AER-2015-1510R2_pspp.mod       mod
+6 aer_108_12_2 Codes and Data/AER-2015-1510R2_counterfactuals.m         m
+      kb nested present_main present_master present_makefile present_dockerfile
+1  0.000      0        FALSE          FALSE            FALSE              FALSE
+2 28.733      0        FALSE          FALSE            FALSE              FALSE
+3  0.264      0        FALSE          FALSE            FALSE              FALSE
+4  2.513      0        FALSE          FALSE            FALSE              FALSE
+5 12.900      0        FALSE          FALSE            FALSE              FALSE
+6 36.860      0        FALSE          FALSE            FALSE              FALSE
+  present_apptainer present_dependency
+1             FALSE              FALSE
+2             FALSE              FALSE
+3             FALSE              FALSE
+4             FALSE              FALSE
+5             FALSE              FALSE
+6             FALSE              FALSE
 > 
 > head(files_main %>% filter(present_main))
              id                                                           file
@@ -126,13 +149,20 @@ Group variables            None
 4  aer_108_12_5                    20150742_data/boundary-closed-form/main.cpp
 5  aer_108_12_8     insurance_replication_AER/do/a_analysis_main_experiment.do
 6 aer_108_12_10                          CMLEE/mathematica files/cmlee_main.nb
-  file_type      kb nested present_main present_master
-1         m   2.230      0         TRUE          FALSE
-2        do   9.250      0         TRUE          FALSE
-3       cpp   0.047      0         TRUE          FALSE
-4       cpp   8.245      0         TRUE          FALSE
-5        do  14.808      0         TRUE          FALSE
-6        nb 935.171      0         TRUE          FALSE
+  file_type      kb nested present_main present_master present_makefile
+1         m   2.230      0         TRUE          FALSE            FALSE
+2        do   9.250      0         TRUE          FALSE            FALSE
+3       cpp   0.047      0         TRUE          FALSE            FALSE
+4       cpp   8.245      0         TRUE          FALSE            FALSE
+5        do  14.808      0         TRUE          FALSE            FALSE
+6        nb 935.171      0         TRUE          FALSE            FALSE
+  present_dockerfile present_apptainer present_dependency
+1              FALSE             FALSE              FALSE
+2              FALSE             FALSE              FALSE
+3              FALSE             FALSE              FALSE
+4              FALSE             FALSE              FALSE
+5              FALSE             FALSE              FALSE
+6              FALSE             FALSE              FALSE
 > 
 > dbDisconnect(files_db)
 > 
@@ -212,28 +242,19 @@ Group variables            None
 > 
 > 
 > # by journal
-> analysis_main %>%
-+   group_by(id) %>%
-+   summarize( present_main=max(present_main),
-+              present_master=max(present_master)) %>%
-+   ungroup() %>%
-+   summarize(n=n(),
-+             main_n=sum(present_main),
-+             master_n=sum(present_master),
-+             any_n = sum(present_master | present_main)) %>%
-+   mutate(any_pct = 100 * any_n/n) -> analysis_main.table
+> 
 > 
 > # by journal
 > analysis_main %>% 
 +   group_by(journ,id) %>%
-+   summarize( present_main=max(present_main),
-+              present_master=max(present_master)) %>%
++   summarize(across(starts_with("present_"),max)) %>%
 +   ungroup() %>%
 +   group_by(journ) %>%
 +   summarize(n=n(),
 +             main_n=sum(present_main),
 +             master_n=sum(present_master),
-+             any_n = sum(present_master | present_main)) -> tmp
++             makefile_n = sum(present_makefile),
++             any_n = sum(present_master | present_main | present_makefile)) -> tmp
 `summarise()` has grouped output by 'journ'. You can override using the
 `.groups` argument.
 > tmp %>%
@@ -242,36 +263,36 @@ Group variables            None
 +     tmp %>% ungroup() %>% summarize(n=sum(n),
 +                                     main_n = sum(main_n),
 +                                     master_n=sum(master_n),
++                                     makefile_n=sum(makefile_n),
 +                                     any_n   =sum(any_n))
 +   ) %>%
 +   mutate(any_pct = 100 * any_n/n,
 +          journ = replace_na(journ,"Total")) -> analysis_main.byj.table
 > analysis_main.byj.table
-# A tibble: 18 × 6
-   journ      n main_n master_n any_n any_pct
-   <chr>  <int>  <int>    <int> <int>   <dbl>
- 1 aejapp   603    100      126   189    31.3
- 2 aejmac   471    158       65   197    41.8
- 3 aejmic   216     55       15    67    31.0
- 4 aejpol   618    132      134   228    36.9
- 5 aer     1865    422      265   586    31.4
- 6 aeri     105     33       30    52    49.5
- 7 ecta     300    119       49   146    48.7
- 8 jaere    171     30       19    44    25.7
- 9 jeea     280     65       30    90    32.1
-10 jep      208     24       42    59    28.4
-11 jole     189     34       38    65    34.4
-12 jpe      253     73       35    96    37.9
-13 ms       462     96       38   123    26.6
-14 pandp    460     56       67   116    25.2
-15 qje      255     43       22    58    22.7
-16 restat  1234    152      110   238    19.3
-17 restud   527    151       69   197    37.4
-18 Total   8217   1743     1154  2551    31.0
+# A tibble: 18 × 7
+   journ      n main_n master_n makefile_n any_n any_pct
+   <chr>  <int>  <int>    <int>      <int> <int>   <dbl>
+ 1 aejapp   610    100      126          0   189    31.0
+ 2 aejmac   474    158       65          6   201    42.4
+ 3 aejmic   221     55       15          5    69    31.2
+ 4 aejpol   621    132      134          2   229    36.9
+ 5 aer     1891    423      267         32   599    31.7
+ 6 aeri     105     33       30          1    53    50.5
+ 7 ecta     300    119       49         15   151    50.3
+ 8 jaere    171     30       20          0    45    26.3
+ 9 jeea     280     65       31          3    91    32.5
+10 jep      209     24       42          1    60    28.7
+11 jole     190     34       38          2    65    34.2
+12 jpe      253     73       35          8    98    38.7
+13 ms       462     96       39          3   125    27.1
+14 pandp    460     56       67          2   117    25.4
+15 qje      255     43       22          2    59    23.1
+16 restat  1234    153      110          0   239    19.4
+17 restud   544    152       70         14   204    37.5
+18 Total   8280   1746     1160         96  2594    31.3
 > 
 > # write out tables
 > 
-> write.csv(analysis_main.table,file.path(generated,"analysis-main.csv"))
 > write.csv(analysis_main.byj.table,file.path(generated,"analysis-main-byj.csv"))
 > 
 > print(
@@ -280,7 +301,38 @@ Group variables            None
 +          label="tab:master:byjournal"),
 +   caption.placement = "top",
 +   file=file.path(generated,"table_analysis_main_byj.tex"))
-Error in xtable(analysis_main.byj.table, caption = "Presence of main or master file in main Econ journals",  : 
-  could not find function "xtable"
-Calls: print
-Execution halted
+> 
+> 
+> 
+> ### Now find "Dockerfiles"
+> 
+> 
+> # summarize
+> articles <- nrow(files_main %>% distinct(id))
+> files_main %>% 
++   #group_by(journ,id) %>%
++   group_by(id) %>%
++   mutate(present_any = (present_master | present_main | present_makefile)) %>%
++   summarize(across(starts_with("present_"),max),) %>%
++   ungroup() %>%
++   summarize(present_n=n(),
++             across(starts_with("present_"),sum)) %>%
++   pivot_longer(starts_with("present_")) %>%
++   mutate(Percent = 100*value/articles)-> analysis_main.table
+> 
+> write.csv(analysis_main.table,file.path(generated,"analysis-main.csv"))
+> 
+> print(
++   xtable(analysis_main.table,
++          caption="Presence of main or master file in main Econ journals",
++          label="tab:master"),
++   caption.placement = "top",
++   file=file.path(generated,"table_analysis_main.tex"))
+> 
+> 
+> dbDisconnect(articles_db)
+> 
+> 
+> proc.time()
+   user  system elapsed 
+ 16.630   1.804  16.824 

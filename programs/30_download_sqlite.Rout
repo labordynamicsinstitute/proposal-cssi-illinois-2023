@@ -86,12 +86,74 @@ downloaded 1.2 MB
 * DONE (skimr)
 
 The downloaded source packages are in
-	‘/tmp/RtmpZIeeWX/downloaded_packages’
+	‘/tmp/Rtmp1Suq5H/downloaded_packages’
 Loading required package: skimr
 Loading required package: tidyr
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+Loading required package: ggrepel
+Installing package into ‘/usr/local/lib/R/site-library’
+(as ‘lib’ is unspecified)
+also installing the dependencies ‘beeswarm’, ‘vipor’, ‘svglite’, ‘vdiffr’, ‘prettydoc’, ‘ggbeeswarm’
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/beeswarm_0.4.0.tar.gz'
+Content type 'binary/octet-stream' length 77170 bytes (75 KB)
+==================================================
+downloaded 75 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/vipor_0.4.5.tar.gz'
+Content type 'binary/octet-stream' length 4403887 bytes (4.2 MB)
+==================================================
+downloaded 4.2 MB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/svglite_2.1.2.tar.gz'
+Content type 'binary/octet-stream' length 203073 bytes (198 KB)
+==================================================
+downloaded 198 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/vdiffr_1.0.7.tar.gz'
+Content type 'binary/octet-stream' length 154256 bytes (150 KB)
+==================================================
+downloaded 150 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/prettydoc_0.4.1.tar.gz'
+Content type 'binary/octet-stream' length 996179 bytes (972 KB)
+==================================================
+downloaded 972 KB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/ggbeeswarm_0.7.2.tar.gz'
+Content type 'binary/octet-stream' length 1754623 bytes (1.7 MB)
+==================================================
+downloaded 1.7 MB
+
+trying URL 'https://packagemanager.posit.co/cran/__linux__/focal/2023-10-16/src/contrib/ggrepel_0.9.4.tar.gz'
+Content type 'binary/octet-stream' length 272839 bytes (266 KB)
+==================================================
+downloaded 266 KB
+
+* installing *binary* package ‘beeswarm’ ...
+* DONE (beeswarm)
+* installing *binary* package ‘vipor’ ...
+* DONE (vipor)
+* installing *binary* package ‘svglite’ ...
+* DONE (svglite)
+* installing *binary* package ‘vdiffr’ ...
+* DONE (vdiffr)
+* installing *binary* package ‘prettydoc’ ...
+* DONE (prettydoc)
+* installing *binary* package ‘ggrepel’ ...
+* DONE (ggrepel)
+* installing *binary* package ‘ggbeeswarm’ ...
+* DONE (ggbeeswarm)
+
+The downloaded source packages are in
+	‘/tmp/Rtmp1Suq5H/downloaded_packages’
+Loading required package: ggrepel
+Loading required package: ggplot2
+Loading required package: xtable
+Warning messages:
+1: In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called ‘skimr’
+2: In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called ‘ggrepel’
 > source(file.path(programs,"config.R"), echo=FALSE)
 > 
 > # download data for filenames
@@ -132,4 +194,4 @@ File from http://econ.mathematik.uni-ulm.de/ejd/articles.zip was successfully do
 > 
 > proc.time()
    user  system elapsed 
-  4.880   8.721   9.847 
+  8.285  19.697  21.255 

@@ -46,6 +46,9 @@ Loading required package: DBI
 Loading required package: RSQLite
 Loading required package: skimr
 Loading required package: tidyr
+Loading required package: ggrepel
+Loading required package: ggplot2
+Loading required package: xtable
 > source(file.path(programs,"config.R"), echo=FALSE)
 > 
 > # exclusions to not consider
@@ -329,7 +332,129 @@ Group variables            None
 +          label="tab:software:byjournal"),
 +   caption.placement = "top",
 +   file=file.path(generated,"table_analysis_software_byj.tex"))
-Error in xtable(analysis_software.byj.table, caption = "Software use in main Econ journals",  : 
-  could not find function "xtable"
-Calls: print
-Execution halted
+> 
+> # now summarize across all journals
+> 
+> analysis_software.byj.table %>%
++   ungroup() %>%
++   group_by(name) %>%
++   summarize(articles = sum(articles),
++             value = sum(value)) %>%
++   mutate(articles = max(articles),
++          Percent = 100*value/articles) -> analysis_software.table
+> 
+> # write out tables
+> 
+> write.csv(analysis_software.table,file.path(generated,"analysis-software.csv"))
+> 
+> print(
++   xtable(analysis_software.table,
++          caption="Software use in main Econ journals",
++          label="tab:software"),
++   caption.placement = "top",
++   file=file.path(generated,"table_analysis_software.tex"))
+> 
+> 
+> # by year and software
+> analysis_software %>% 
++   group_by(year,id) %>%
++   summarize(across(starts_with("present_"),max)) %>%
++   ungroup() %>%
++   group_by(year) %>%
++   summarize(articles=n(),
++             across(starts_with("present_"),sum)) %>%
++   pivot_longer(starts_with("present_")) %>%
++   mutate(software=str_remove(name,"present_")) %>%
++   select(-name) %>%
++   mutate(Percent = 100*value/articles)  -> analysis_software.byy.table
+`summarise()` has grouped output by 'year'. You can override using the
+`.groups` argument.
+> analysis_software.byy.table
+# A tibble: 190 × 5
+    year articles value software    Percent
+   <int>    <int> <int> <chr>         <dbl>
+ 1  2005       58     0 python         0   
+ 2  2005       58     0 julia          0   
+ 3  2005       58     0 notebooks      0   
+ 4  2005       58     0 r              0   
+ 5  2005       58    25 stata         43.1 
+ 6  2005       58    11 matlab        19.0 
+ 7  2005       58     3 mathematica    5.17
+ 8  2005       58     0 ampl           0   
+ 9  2005       58     0 dynare         0   
+10  2005       58     0 ox             0   
+# ℹ 180 more rows
+> 
+> # write out tables
+> 
+> write.csv(analysis_software.byy.table,file.path(generated,"analysis-software-byy.csv"))
+> 
+> print(
++   xtable(analysis_software.byy.table,
++          caption="Software use in main Econ journals",
++          label="tab:software:byyear"),
++   caption.placement = "top",
++   file=file.path(generated,"table_analysis_software_byy.tex"))
+> 
+> library(ggplot2)
+> library(viridis)
+Loading required package: viridisLite
+> library(ggrepel)
+> 
+> # get end points
+> 
+> data_ends <- analysis_software.byy.table %>%
++   group_by(software) %>%
++   filter(year == max(year)) %>%
++   mutate(Percent = round(Percent,1)) %>%
++   filter(Percent > 5) %>%
++   pull(Percent)
+> 
+> data_ends.words <- analysis_software.byy.table %>%
++   group_by(software) %>%
++   mutate(label = if_else(Percent > 3.5,software,""),
++          # add an Other label
++          label = if_else(software=="dynare","Other",label),
++          label = if_else(year == max(year),label,NA_character_))
+> 
+> g<- ggplot(data_ends.words, 
++        aes(x=year, y=Percent, color=software)) +
++   geom_line() +
++   geom_point() +
++   #scale_y_continuous(sec.axis = sec_axis(~ ., breaks = data_ends.words)) +
++   geom_label_repel(aes(label = label),
++                    nudge_x = 1,
++                    na.rm = TRUE) +
++   theme_minimal() +
++   theme(panel.grid.major.y = element_line(color="grey90", 
++                                           linewidth = 1,
++                                           linetype="dotted"
++                                           ),
++         panel.grid.minor = element_blank(),
++         panel.grid.major.x = element_blank()) +
++   scale_color_viridis_d(option = "viridis",direction = -1,guide="none") +
++   labs(title="Frequency of Software by Year",
++        x="Year",
++        y=element_blank())
+> 
+> # write out stuff 
+> write.csv(analysis_software.byy.table,file.path(generated,"analysis-software-byy.csv"))
+> 
+> print(
++   xtable(analysis_software.byy.table %>% select(year,software,Percent) %>% 
++            filter(year>2010) %>%
++            pivot_wider(names_from=year,values_from = Percent),
++          caption="Software use in main Econ journals",
++          label="tab:software:byyear"),
++   caption.placement = "top",
++   file=file.path(generated,"table_analysis_software_byy.tex"))
+> 
+> ggsave(filename=file.path(generated,"analysis-software-byy.png"),g)
+Saving 7 x 7 in image
+> 
+> dbDisconnect(articles_db)
+> 
+> 
+> proc.time()
+   user  system elapsed 
+ 16.321   1.931  16.710 
